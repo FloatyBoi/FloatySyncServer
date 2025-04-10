@@ -8,7 +8,6 @@ namespace FloatySyncServer.Data
 		public SyncDbContext(DbContextOptions<SyncDbContext> options)
 			: base(options) { }
 
-		//TODO: Add group information ("key, name, id")
 		public DbSet<FileMetadata>? Files { get; set; }
 		public DbSet<Group> Groups { get; set; }
 		protected override void OnModelCreating(ModelBuilder modelBuilder)

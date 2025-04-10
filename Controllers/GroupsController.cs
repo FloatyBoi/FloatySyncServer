@@ -27,9 +27,9 @@ namespace FloatySyncServer.Controllers
 				return BadRequest("Name and SecretKey are required.");
 			}
 
-			string masterKey = System.IO.File.ReadAllText(Path.Combine(_env.ContentRootPath, "key.txt"));
+			string masterKeyBase64 = System.IO.File.ReadAllText(Path.Combine(_env.ContentRootPath, "key.txt"));
 
-			string encryptedKey = Helpers.EncryptString(request.SecretKey, masterKey);
+			string encryptedKey = Helpers.EncryptString(request.SecretKey, masterKeyBase64);
 
 			var group = new Group
 			{

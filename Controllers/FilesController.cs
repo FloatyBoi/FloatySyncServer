@@ -20,7 +20,6 @@ namespace FloatySyncServer.Controllers
 			_env = env;
 		}
 
-		//TODO: Add Authorization
 		//TODO: Add conflict handling (newer file wins? return the conflict so that client can decide?)
 		[HttpPost("upload")]
 		public async Task<IActionResult> UploadFile(
@@ -42,8 +41,8 @@ namespace FloatySyncServer.Controllers
 			if (group == null)
 				return NotFound("Group not found");
 
-			string masterKey = System.IO.File.ReadAllText(Path.Combine(_env.ContentRootPath, "key.txt"));
-			string decryptedKey = Helpers.DecryptString(group.EncryptedSecretKey, masterKey);
+			string masterKeyBase64 = System.IO.File.ReadAllText(Path.Combine(_env.ContentRootPath, "key.txt"));
+			string decryptedKey = Helpers.DecryptString(group.EncryptedSecretKey, masterKeyBase64);
 
 			if (decryptedKey != groupKeyPlaintext)
 			{
@@ -110,8 +109,8 @@ namespace FloatySyncServer.Controllers
 			if (group == null)
 				return NotFound("Group not found");
 
-			string masterKey = System.IO.File.ReadAllText(Path.Combine(_env.ContentRootPath, "key.txt"));
-			string decryptedKey = Helpers.DecryptString(group.EncryptedSecretKey, masterKey);
+			string masterKeyBase64 = System.IO.File.ReadAllText(Path.Combine(_env.ContentRootPath, "key.txt"));
+			string decryptedKey = Helpers.DecryptString(group.EncryptedSecretKey, masterKeyBase64);
 
 			if (decryptedKey != moveRequest.GroupKeyPlaintext)
 			{
@@ -161,8 +160,8 @@ namespace FloatySyncServer.Controllers
 			if (group == null)
 				return NotFound("Group not found");
 
-			string masterKey = System.IO.File.ReadAllText(Path.Combine(_env.ContentRootPath, "key.txt"));
-			string decryptedKey = Helpers.DecryptString(group.EncryptedSecretKey, masterKey);
+			string masterKeyBase64 = System.IO.File.ReadAllText(Path.Combine(_env.ContentRootPath, "key.txt"));
+			string decryptedKey = Helpers.DecryptString(group.EncryptedSecretKey, masterKeyBase64);
 
 			if (decryptedKey != groupKeyPlaintext)
 			{
@@ -194,8 +193,8 @@ namespace FloatySyncServer.Controllers
 			if (group == null)
 				return NotFound("Group not found");
 
-			string masterKey = System.IO.File.ReadAllText(Path.Combine(_env.ContentRootPath, "key.txt"));
-			string decryptedKey = Helpers.DecryptString(group.EncryptedSecretKey, masterKey);
+			string masterKeyBase64 = System.IO.File.ReadAllText(Path.Combine(_env.ContentRootPath, "key.txt"));
+			string decryptedKey = Helpers.DecryptString(group.EncryptedSecretKey, masterKeyBase64);
 
 			if (decryptedKey != groupKeyPlaintext)
 			{

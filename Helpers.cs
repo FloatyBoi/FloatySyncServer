@@ -28,9 +28,9 @@ namespace FloatySyncServer
 			return syncDbContext.Files.FirstOrDefault(f => f.RelativePath == relativePath && f.GroupId == groupId);
 		}
 
-		public static string EncryptString(string plainText, string masterKey)
+		public static string EncryptString(string plainText, string masterKeyBase64)
 		{
-			byte[] keyBytes = Encoding.UTF8.GetBytes(masterKey);
+			byte[] keyBytes = Convert.FromBase64String(masterKeyBase64);
 
 			using Aes aes = Aes.Create();
 			aes.Key = keyBytes;
@@ -49,10 +49,10 @@ namespace FloatySyncServer
 			return Convert.ToBase64String(ms.ToArray());
 		}
 
-		public static string DecryptString(string cipherTextBase64, string masterKey)
+		public static string DecryptString(string cipherTextBase64, string masterKeyBase64)
 		{
 			byte[] cipherBytes = Convert.FromBase64String(cipherTextBase64);
-			byte[] keyBytes = Encoding.UTF8.GetBytes(masterKey);
+			byte[] keyBytes = Convert.FromBase64String(masterKeyBase64);
 
 			using Aes aes = Aes.Create();
 			aes.Key = keyBytes;
