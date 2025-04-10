@@ -12,7 +12,8 @@
 
 		public string? Checksum { get; set; }
 		public string? GroupId { get; set; }
-		public string? OwnerUserId { get; set; }
+
+		public bool IsDeleted = false;
 
 		public string? StoredPathOnServer { get; set; }
 	}

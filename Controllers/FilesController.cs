@@ -215,7 +215,8 @@ namespace FloatySyncServer.Controllers
 				try
 				{
 					System.IO.File.Delete(fileMetaData.StoredPathOnServer);
-					_syncDbContext.Files.Remove(fileMetaData);
+					fileMetaData.IsDeleted = true;
+					fileMetaData.LastModifiedUtc = DateTime.UtcNow;
 				}
 				catch (Exception ex)
 				{
@@ -226,6 +227,38 @@ namespace FloatySyncServer.Controllers
 			await _syncDbContext.SaveChangesAsync();
 
 			return Ok("File removed successfully.");
+		}
+
+		[HttpGet("changes")]
+		public IActionResult GetChanges(
+			[FromQuery] string groupId,
+			[FromQuery] string groupKeyPlaintext,
+			[FromQuery] DateTime lastSyncUtc)
+		{
+			var group = _syncDbContext.Groups.Find(Convert.ToInt32(groupId));
+			if (group == null)
+				return NotFound("Group not found");
+
+			string masterKeyBase64 = System.IO.File.ReadAllText(Path.Combine(_env.ContentRootPath, "key.txt"));
+			string decryptedKey = Helpers.DecryptString(group.EncryptedSecretKey, masterKeyBase64);
+
+			if (decryptedKey != groupKeyPlaintext)
+			{
+				return StatusCode(StatusCodes.Status403Forbidden, "Invalid group / key");
+			}
+
+			var changedFiles = _syncDbContext.Files
+				.Where(f => f.GroupId == groupId && f.LastModifiedUtc > lastSyncUtc)
+				.Select(f => new FileChangeInfo
+				{
+					FileId = f.Id,
+					RelativePath = f.RelativePath,
+					IsDeleted = f.IsDeleted,
+					LastModifiedUtc = f.LastModifiedUtc
+				})
+				.ToList();
+
+			return Ok(changedFiles);
 		}
 	}
 }
