@@ -37,7 +37,7 @@ namespace FloatySyncServer.Controllers
 			if (string.IsNullOrWhiteSpace(groupKeyPlaintext))
 				return BadRequest("No group key provided");
 
-			var group = _syncDbContext.Groups.Find(groupId);
+			var group = _syncDbContext.Groups.Find(Convert.ToInt32(groupId));
 			if (group == null)
 				return NotFound("Group not found");
 
@@ -105,7 +105,7 @@ namespace FloatySyncServer.Controllers
 				return BadRequest("Invalid move request");
 			}
 
-			var group = _syncDbContext.Groups.Find(moveRequest.GroupId);
+			var group = _syncDbContext.Groups.Find(Convert.ToInt32(moveRequest.GroupId));
 			if (group == null)
 				return NotFound("Group not found");
 
@@ -156,7 +156,7 @@ namespace FloatySyncServer.Controllers
 			[FromQuery] string groupKeyPlaintext)
 		{
 
-			var group = _syncDbContext.Groups.Find(groupId);
+			var group = _syncDbContext.Groups.Find(Convert.ToInt32(groupId));
 			if (group == null)
 				return NotFound("Group not found");
 
@@ -189,7 +189,7 @@ namespace FloatySyncServer.Controllers
 			[FromQuery] string groupId,
 			[FromQuery] string groupKeyPlaintext)
 		{
-			var group = _syncDbContext.Groups.Find(groupId);
+			var group = _syncDbContext.Groups.Find(Convert.ToInt32(groupId));
 			if (group == null)
 				return NotFound("Group not found");
 
