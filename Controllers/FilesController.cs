@@ -40,10 +40,15 @@ namespace FloatySyncServer.Controllers
 
 			var group = _syncDbContext.Groups.Find(groupId);
 			if (group == null)
-				return NotFound("Group not found / Invalid key");
+				return NotFound("Group not found");
 
 			string masterKey = System.IO.File.ReadAllText(Path.Combine(_env.ContentRootPath, "key.txt"));
+			string decryptedKey = Helpers.DecryptString(group.EncryptedSecretKey, masterKey);
 
+			if (decryptedKey != groupKeyPlaintext)
+			{
+				return StatusCode(StatusCodes.Status403Forbidden, "Invalid group / key");
+			}
 
 			//Figure out the different paths
 			string basePath = Path.Combine(_env.ContentRootPath, "SyncData");
@@ -95,9 +100,22 @@ namespace FloatySyncServer.Controllers
 			if (moveRequest == null
 				|| string.IsNullOrEmpty(moveRequest.OldRelativePath)
 				|| string.IsNullOrEmpty(moveRequest.NewRelativePath)
-				|| string.IsNullOrEmpty(moveRequest.GroupId))
+				|| string.IsNullOrEmpty(moveRequest.GroupId)
+				|| string.IsNullOrEmpty(moveRequest.GroupKeyPlaintext))
 			{
 				return BadRequest("Invalid move request");
+			}
+
+			var group = _syncDbContext.Groups.Find(moveRequest.GroupId);
+			if (group == null)
+				return NotFound("Group not found");
+
+			string masterKey = System.IO.File.ReadAllText(Path.Combine(_env.ContentRootPath, "key.txt"));
+			string decryptedKey = Helpers.DecryptString(group.EncryptedSecretKey, masterKey);
+
+			if (decryptedKey != moveRequest.GroupKeyPlaintext)
+			{
+				return StatusCode(StatusCodes.Status403Forbidden, "Invalid group / key");
 			}
 
 			var fileMetaData = Helpers.TryGetFileMetadata(moveRequest.OldRelativePath, moveRequest.GroupId, _syncDbContext);
@@ -135,8 +153,22 @@ namespace FloatySyncServer.Controllers
 		[HttpGet("download")]
 		public async Task<IActionResult> DownloadFile(
 			[FromQuery] string relativePath,
-			[FromQuery] string groupId)
+			[FromQuery] string groupId,
+			[FromQuery] string groupKeyPlaintext)
 		{
+
+			var group = _syncDbContext.Groups.Find(groupId);
+			if (group == null)
+				return NotFound("Group not found");
+
+			string masterKey = System.IO.File.ReadAllText(Path.Combine(_env.ContentRootPath, "key.txt"));
+			string decryptedKey = Helpers.DecryptString(group.EncryptedSecretKey, masterKey);
+
+			if (decryptedKey != groupKeyPlaintext)
+			{
+				return StatusCode(StatusCodes.Status403Forbidden, "Invalid group / key");
+			}
+
 			var fileMetaData = Helpers.TryGetFileMetadata(relativePath, groupId, _syncDbContext);
 
 			if (fileMetaData == null)
@@ -155,8 +187,21 @@ namespace FloatySyncServer.Controllers
 		[HttpDelete("delete")]
 		public async Task<IActionResult> DeleteFile(
 			[FromQuery] string relativePath,
-			[FromQuery] string groupId)
+			[FromQuery] string groupId,
+			[FromQuery] string groupKeyPlaintext)
 		{
+			var group = _syncDbContext.Groups.Find(groupId);
+			if (group == null)
+				return NotFound("Group not found");
+
+			string masterKey = System.IO.File.ReadAllText(Path.Combine(_env.ContentRootPath, "key.txt"));
+			string decryptedKey = Helpers.DecryptString(group.EncryptedSecretKey, masterKey);
+
+			if (decryptedKey != groupKeyPlaintext)
+			{
+				return StatusCode(StatusCodes.Status403Forbidden, "Invalid group / key");
+			}
+
 			var fileMetaData = Helpers.TryGetFileMetadata(relativePath, groupId, _syncDbContext);
 
 			if (fileMetaData == null)
