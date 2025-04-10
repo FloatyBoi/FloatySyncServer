@@ -1,0 +1,19 @@
+﻿namespace FloatySyncServer.Models
+{
+	public class FileMetadata
+	{
+		public int Id { get; set; }
+
+		// "Notes/File.txt"
+		public string RelativePath { get; set; } = default!;
+
+		// For conflict detection
+		public DateTime LastModifiedUtc { get; set; }
+
+		public string? Checksum { get; set; }
+		public string? GroupId { get; set; }
+		public string? OwnerUserId { get; set; }
+
+		public string? StoredPathOnServer { get; set; }
+	}
+}
