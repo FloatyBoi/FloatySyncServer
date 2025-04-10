@@ -20,11 +20,11 @@ namespace FloatySyncServer.Controllers
 			_env = env;
 		}
 
-		//TODO: Add conflict handling (newer file wins? return the conflict so that client can decide?)
 		[HttpPost("upload")]
 		public async Task<IActionResult> UploadFile(
 			[FromForm] string relativePath,
 			[FromForm] IFormFile file,
+			[FromForm] DateTime lastModifiedUtc,
 			[FromForm] string groupId,
 			[FromForm] string groupKeyPlaintext)
 		{
@@ -61,29 +61,39 @@ namespace FloatySyncServer.Controllers
 			if (!Directory.Exists(fullPath))
 				Directory.CreateDirectory(Path.GetDirectoryName(fullPath)!);
 
-			//Saving the file
-			using (var stream = new FileStream(fullPath, FileMode.Create))
-			{
-				await file.CopyToAsync(stream);
-			}
-
 			//Updating the Database
 			var existing = Helpers.TryGetFileMetadata(relativePath, groupId, _syncDbContext);
 
 			if (existing != null)
 			{
-				existing.LastModifiedUtc = DateTime.UtcNow;
-				existing.StoredPathOnServer = fullPath;
-				existing.Checksum = Helpers.ComputeFileChecksum(fullPath);
+				if (existing.LastModifiedUtc > lastModifiedUtc)
+				{
+					//File on the server is newer (conflict)
+
+					return Conflict("Server version is newer. Conflict detected.");
+				}
+				else
+				{
+					existing.LastModifiedUtc = DateTime.UtcNow;
+					existing.StoredPathOnServer = fullPath;
+					existing.Checksum = Helpers.ComputeFileChecksum(fullPath);
+				}
 			}
 			else
 			{
+				//Saving the file
+				using (var stream = new FileStream(fullPath, FileMode.Create))
+				{
+					await file.CopyToAsync(stream);
+				}
+
 				var newFile = new FileMetadata
 				{
 					RelativePath = relativePath,
 					LastModifiedUtc = DateTime.UtcNow,
 					GroupId = groupId,
-					StoredPathOnServer = fullPath
+					StoredPathOnServer = fullPath,
+					Checksum = Helpers.ComputeFileChecksum(fullPath)
 				};
 				_syncDbContext.Files.Add(newFile);
 			}
@@ -186,6 +196,7 @@ namespace FloatySyncServer.Controllers
 		[HttpDelete("delete")]
 		public async Task<IActionResult> DeleteFile(
 			[FromQuery] string relativePath,
+			[FromQuery] string checksum,
 			[FromQuery] string groupId,
 			[FromQuery] string groupKeyPlaintext)
 		{
@@ -205,6 +216,9 @@ namespace FloatySyncServer.Controllers
 
 			if (fileMetaData == null)
 				return NotFound("File not found on server database");
+
+			if (fileMetaData.Checksum != checksum)
+				return Conflict("Checksum differs from server version");
 
 			if (fileMetaData.StoredPathOnServer == null || !System.IO.File.Exists(fileMetaData.StoredPathOnServer))
 			{
