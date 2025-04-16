@@ -194,9 +194,9 @@ namespace FloatySyncServer.Controllers
 		}
 
 		[HttpDelete("delete")]
-		public async Task<IActionResult> DeleteFile(
+		public async Task<IActionResult> Delete(
 			[FromQuery] string relativePath,
-			[FromQuery] string checksum,
+			[FromQuery] string? checksum,
 			[FromQuery] string groupId,
 			[FromQuery] string groupKeyPlaintext)
 		{
@@ -210,6 +210,14 @@ namespace FloatySyncServer.Controllers
 			if (decryptedKey != groupKeyPlaintext)
 			{
 				return StatusCode(StatusCodes.Status403Forbidden, "Invalid group / key");
+			}
+
+			//Its a directory
+			if (checksum == null && Directory.Exists(Path.Combine(_env.ContentRootPath, "SyncData", groupId, relativePath)))
+			{
+				Directory.Delete(Path.Combine(_env.ContentRootPath, "SyncData", groupId, relativePath), true);
+
+				return Ok("Deleted Directory");
 			}
 
 			var fileMetaData = Helpers.TryGetFileMetadata(relativePath, groupId, _syncDbContext);
