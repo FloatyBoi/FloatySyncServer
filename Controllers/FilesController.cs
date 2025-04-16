@@ -28,7 +28,7 @@ namespace FloatySyncServer.Controllers
 			[FromForm] string groupId,
 			[FromForm] string groupKeyPlaintext)
 		{
-			if (file == null || file.Length == 0)
+			if (file == null)
 				return BadRequest("No file uploaded.");
 			if (string.IsNullOrWhiteSpace(relativePath))
 				return BadRequest("No relative path provided.");
@@ -74,7 +74,7 @@ namespace FloatySyncServer.Controllers
 				}
 				else
 				{
-					existing.LastModifiedUtc = DateTime.UtcNow;
+					existing.LastModifiedUtc = lastModifiedUtc;
 					existing.StoredPathOnServer = fullPath;
 					existing.Checksum = Helpers.ComputeFileChecksum(fullPath);
 				}

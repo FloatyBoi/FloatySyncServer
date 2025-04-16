@@ -1,7 +1,10 @@
-﻿namespace FloatySyncServer.Models
+﻿using System.ComponentModel.DataAnnotations;
+
+namespace FloatySyncServer.Models
 {
 	public class FileMetadata
 	{
+		[Key]
 		public int Id { get; set; }
 
 		// "Notes/File.txt"
