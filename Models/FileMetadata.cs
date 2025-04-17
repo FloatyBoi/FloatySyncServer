@@ -18,6 +18,8 @@ namespace FloatySyncServer.Models
 
 		public bool IsDeleted = false;
 
+		public bool IsDirectory { get; set; }
+
 		public string? StoredPathOnServer { get; set; }
 	}
 }

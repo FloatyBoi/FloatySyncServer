@@ -40,7 +40,6 @@ namespace FloatySyncServer.Controllers
 			_syncDbContext.Groups.Add(group);
 			_syncDbContext.SaveChanges();
 
-			Console.WriteLine(group.Id);
 			return Ok(new { GroupId = group.Id });
 		}
 

@@ -74,9 +74,17 @@ namespace FloatySyncServer.Controllers
 				}
 				else
 				{
+					//Saving the file
+					using (var stream = new FileStream(fullPath, FileMode.Create))
+					{
+						await file.CopyToAsync(stream);
+					}
+
 					existing.LastModifiedUtc = lastModifiedUtc;
 					existing.StoredPathOnServer = fullPath;
 					existing.Checksum = Helpers.ComputeFileChecksum(fullPath);
+
+
 				}
 			}
 			else
@@ -90,7 +98,7 @@ namespace FloatySyncServer.Controllers
 				var newFile = new FileMetadata
 				{
 					RelativePath = relativePath,
-					LastModifiedUtc = DateTime.UtcNow,
+					LastModifiedUtc = lastModifiedUtc,
 					GroupId = groupId,
 					StoredPathOnServer = fullPath,
 					Checksum = Helpers.ComputeFileChecksum(fullPath)
@@ -200,6 +208,8 @@ namespace FloatySyncServer.Controllers
 			[FromQuery] string groupId,
 			[FromQuery] string groupKeyPlaintext)
 		{
+			Console.WriteLine("Reached");
+
 			var group = _syncDbContext.Groups.Find(Convert.ToInt32(groupId));
 			if (group == null)
 				return NotFound("Group not found");
@@ -212,7 +222,7 @@ namespace FloatySyncServer.Controllers
 				return StatusCode(StatusCodes.Status403Forbidden, "Invalid group / key");
 			}
 
-			//Its a directory
+			//Its a directory (Deprecated)
 			if (checksum == null && Directory.Exists(Path.Combine(_env.ContentRootPath, "SyncData", groupId, relativePath)))
 			{
 				Directory.Delete(Path.Combine(_env.ContentRootPath, "SyncData", groupId, relativePath), true);
@@ -276,7 +286,8 @@ namespace FloatySyncServer.Controllers
 					FileId = f.Id,
 					RelativePath = f.RelativePath,
 					IsDeleted = f.IsDeleted,
-					LastModifiedUtc = f.LastModifiedUtc
+					LastModifiedUtc = f.LastModifiedUtc,
+					IsDirectory = f.IsDirectory,
 				})
 				.ToList();
 
