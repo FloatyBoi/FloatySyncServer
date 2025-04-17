@@ -41,6 +41,8 @@ namespace FloatySyncServer.Controllers
 			if (group == null)
 				return NotFound("Group not found");
 
+			relativePath = PathNorm.Normalize(relativePath);
+
 			string masterKeyBase64 = System.IO.File.ReadAllText(Path.Combine(_env.ContentRootPath, "key.txt"));
 			string decryptedKey = Helpers.DecryptString(group.EncryptedSecretKey, masterKeyBase64);
 
@@ -57,7 +59,8 @@ namespace FloatySyncServer.Controllers
 			var groupFolder = Path.Combine(basePath, groupId);
 			Directory.CreateDirectory(groupFolder);
 
-			string fullPath = Path.Combine(groupFolder, relativePath);
+			var fullPath = Path.Combine(groupFolder, PathNorm.ToDisk(relativePath));
+
 			if (!Directory.Exists(fullPath))
 				Directory.CreateDirectory(Path.GetDirectoryName(fullPath)!);
 
@@ -123,6 +126,9 @@ namespace FloatySyncServer.Controllers
 				return BadRequest("Invalid move request");
 			}
 
+			moveRequest.OldRelativePath = PathNorm.Normalize(moveRequest.OldRelativePath);
+			moveRequest.NewRelativePath = PathNorm.Normalize(moveRequest.NewRelativePath);
+
 			var group = _syncDbContext.Groups.Find(Convert.ToInt32(moveRequest.GroupId));
 			if (group == null)
 				return NotFound("Group not found");
@@ -145,7 +151,7 @@ namespace FloatySyncServer.Controllers
 				return NotFound("Physical file not found on server");
 
 			var basePath = Path.Combine(_env.ContentRootPath, "SyncData", moveRequest.GroupId);
-			var newFullPath = Path.Combine(basePath, moveRequest.NewRelativePath);
+			var newFullPath = Path.Combine(basePath, PathNorm.ToDisk(moveRequest.NewRelativePath));
 
 			try
 			{
@@ -173,6 +179,7 @@ namespace FloatySyncServer.Controllers
 			[FromQuery] string groupId,
 			[FromQuery] string groupKeyPlaintext)
 		{
+			relativePath = PathNorm.Normalize(relativePath);
 
 			var group = _syncDbContext.Groups.Find(Convert.ToInt32(groupId));
 			if (group == null)
@@ -208,7 +215,7 @@ namespace FloatySyncServer.Controllers
 			[FromQuery] string groupId,
 			[FromQuery] string groupKeyPlaintext)
 		{
-			Console.WriteLine("Reached");
+			relativePath = PathNorm.Normalize(relativePath);
 
 			var group = _syncDbContext.Groups.Find(Convert.ToInt32(groupId));
 			if (group == null)

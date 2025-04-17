@@ -16,7 +16,7 @@ namespace FloatySyncServer.Models
 		public string? Checksum { get; set; }
 		public string? GroupId { get; set; }
 
-		public bool IsDeleted = false;
+		public bool IsDeleted { get; set; }
 
 		public bool IsDirectory { get; set; }
 

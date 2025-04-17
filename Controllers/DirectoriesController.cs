@@ -5,7 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace FloatySyncServer.Controllers
 {
 	[ApiController]
-	[Route("api/[controller]")]
+	[Route("api/directories")]
 	public class DirectoriesController : ControllerBase
 	{
 		private readonly SyncDbContext _syncDbContext;
@@ -18,50 +18,32 @@ namespace FloatySyncServer.Controllers
 		}
 
 		[HttpPost("create")]
-		public async Task<IActionResult> CreateDirectory(
-			[FromBody] string relativePath,
-			[FromBody] string groupId,
-			[FromBody] string groupKeyPlaintext)
+		public IActionResult CreateDir([FromBody] DirectoryCreateDto dto)
 		{
-			if (string.IsNullOrEmpty(relativePath)
-				|| string.IsNullOrEmpty(groupId)
-				|| string.IsNullOrEmpty(groupKeyPlaintext))
-			{ return BadRequest("Please enter all necessary information"); }
+			if (!TryAuthorize(dto.GroupId, dto.GroupKey, out var g)) return Forbid();
 
-			var group = _syncDbContext.Groups.Find(Convert.ToInt32(groupId));
-			if (group == null)
-				return NotFound("Group not found");
+			string rel = PathNorm.Normalize(dto.RelativePath);
 
-			string masterKeyBase64 = System.IO.File.ReadAllText(Path.Combine(_env.ContentRootPath, "key.txt"));
-			string decryptedKey = Helpers.DecryptString(group.EncryptedSecretKey, masterKeyBase64);
-
-			if (decryptedKey != groupKeyPlaintext)
+			var exists = _syncDbContext.Files.Any(f => f.GroupId == dto.GroupId.ToString() &&
+											f.RelativePath == rel &&
+											!f.IsDeleted &&
+											f.IsDirectory);
+			if (!exists)
 			{
-				return StatusCode(StatusCodes.Status403Forbidden, "Invalid group / key");
+				_syncDbContext.Files.Add(new FileMetadata
+				{
+					GroupId = dto.GroupId.ToString(),
+					RelativePath = rel,
+					IsDirectory = true,
+					LastModifiedUtc = DateTime.UtcNow
+				});
+				_syncDbContext.SaveChanges();
 			}
 
-			string basePath = Path.Combine(_env.ContentRootPath, "SyncData");
-			if (!Directory.Exists(basePath))
-				Directory.CreateDirectory(basePath);
+			string phys = FullPath(dto.GroupId, rel);
+			Directory.CreateDirectory(phys);
 
-			var groupFolder = Path.Combine(basePath, groupId);
-			Directory.CreateDirectory(groupFolder);
-
-			string fullPath = Path.Combine(groupFolder, relativePath);
-			if (!Directory.Exists(fullPath))
-				Directory.CreateDirectory(Path.GetDirectoryName(fullPath)!);
-
-			FileMetadata direcotryMetaData = new FileMetadata();
-			direcotryMetaData.GroupId = groupId;
-			direcotryMetaData.Checksum = null;
-			direcotryMetaData.StoredPathOnServer = fullPath;
-			direcotryMetaData.RelativePath = relativePath;
-			direcotryMetaData.IsDirectory = true;
-
-			await _syncDbContext.Files.AddAsync(direcotryMetaData);
-			await _syncDbContext.SaveChangesAsync();
-
-			return Ok("Created Directory");
+			return Ok();
 		}
 
 		[HttpPost("rename")]
@@ -69,11 +51,14 @@ namespace FloatySyncServer.Controllers
 		{
 			if (!TryAuthorize(dto.GroupId, dto.GroupKey, out var _)) return Forbid();
 
-			string oldPrefix = dto.OldPath.TrimEnd('/') + "/";
-			string newPrefix = dto.NewPath.TrimEnd('/') + "/";
+			string oldNorm = PathNorm.Normalize(dto.OldPath);
+			string newNorm = PathNorm.Normalize(dto.NewPath);
 
-			string oldPhys = FullPath(dto.GroupId, dto.OldPath);
-			string newPhys = FullPath(dto.GroupId, dto.NewPath);
+			string oldPrefix = oldNorm + "/";
+			string newPrefix = newNorm + "/";
+
+			string oldPhys = FullPath(dto.GroupId, oldNorm);
+			string newPhys = FullPath(dto.GroupId, newNorm);
 
 			if (Directory.Exists(oldPhys))
 			{
@@ -94,11 +79,11 @@ namespace FloatySyncServer.Controllers
 
 			var dirRow = _syncDbContext.Files.FirstOrDefault(f =>
 						f.GroupId == dto.GroupId.ToString() &&
-						f.RelativePath == dto.OldPath &&
+						f.RelativePath == oldNorm &&
 						f.IsDirectory && !f.IsDeleted);
 			if (dirRow != null)
 			{
-				dirRow.RelativePath = dto.NewPath;
+				dirRow.RelativePath = newNorm;
 				dirRow.LastModifiedUtc = DateTime.UtcNow;
 			}
 
@@ -114,7 +99,8 @@ namespace FloatySyncServer.Controllers
 		{
 			if (!TryAuthorize(groupId, groupKeyPlaintext, out var _)) return Forbid();
 
-			string prefix = relativePath.TrimEnd('/') + "/";
+			string rel = PathNorm.Normalize(relativePath);
+			string prefix = rel + "/";
 
 			var rows = _syncDbContext.Files.Where(f => f.GroupId == groupId.ToString() &&
 											(f.RelativePath == relativePath || f.RelativePath.StartsWith(prefix)))
@@ -128,7 +114,7 @@ namespace FloatySyncServer.Controllers
 
 			if (hard)
 			{
-				string phys = FullPath(groupId, relativePath);
+				string phys = FullPath(groupId, rel);
 				if (Directory.Exists(phys))
 					Directory.Delete(phys, recursive: true);
 			}
@@ -141,7 +127,7 @@ namespace FloatySyncServer.Controllers
 			group = _syncDbContext.Groups.Find(groupId)!;
 			if (group == null) return false;
 
-			var masterKey = System.IO.File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "key.txt"));
+			var masterKey = System.IO.File.ReadAllText(Path.Combine(_env.ContentRootPath, "key.txt"));
 			var decrypted = Helpers.DecryptString(group.EncryptedSecretKey, masterKey);
 			return decrypted == keyPlain;
 		}
@@ -151,7 +137,7 @@ namespace FloatySyncServer.Controllers
 		private string FullPath(int groupId, string relativePath)
 		{
 			// group folders named by ID:  DataRoot / {groupId} /  relativePath
-			return Path.Combine(DataRoot, groupId.ToString(), relativePath.Replace('/', Path.DirectorySeparatorChar));
+			return Path.Combine(DataRoot, groupId.ToString(), PathNorm.ToDisk(relativePath));
 		}
 	}
 
@@ -161,5 +147,12 @@ namespace FloatySyncServer.Controllers
 		public string GroupKey { get; set; } = default!;
 		public string OldPath { get; set; } = default!;
 		public string NewPath { get; set; } = default!;
+	}
+
+	public class DirectoryCreateDto
+	{
+		public int GroupId { get; set; }
+		public string GroupKey { get; set; } = default!;
+		public string RelativePath { get; set; } = default!; // path of dir to create
 	}
 }
