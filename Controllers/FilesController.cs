@@ -43,6 +43,9 @@ namespace FloatySyncServer.Controllers
 
 			relativePath = PathNorm.Normalize(relativePath);
 
+			if (!Helpers.IsSafeRelativePath(relativePath))
+				return BadRequest("Invalid Path");
+
 			string masterKeyBase64 = System.IO.File.ReadAllText(Path.Combine(_env.ContentRootPath, "key.txt"));
 			string decryptedKey = Helpers.DecryptString(group.EncryptedSecretKey, masterKeyBase64);
 
@@ -129,6 +132,9 @@ namespace FloatySyncServer.Controllers
 			moveRequest.OldRelativePath = PathNorm.Normalize(moveRequest.OldRelativePath);
 			moveRequest.NewRelativePath = PathNorm.Normalize(moveRequest.NewRelativePath);
 
+			if (!Helpers.IsSafeRelativePath(moveRequest.OldRelativePath) || !Helpers.IsSafeRelativePath(moveRequest.NewRelativePath))
+				return BadRequest("Invalid Path");
+
 			var group = _syncDbContext.Groups.Find(Convert.ToInt32(moveRequest.GroupId));
 			if (group == null)
 				return NotFound("Group not found");
@@ -181,6 +187,9 @@ namespace FloatySyncServer.Controllers
 		{
 			relativePath = PathNorm.Normalize(relativePath);
 
+			if (!Helpers.IsSafeRelativePath(relativePath))
+				return BadRequest("Invalid Path");
+
 			var group = _syncDbContext.Groups.Find(Convert.ToInt32(groupId));
 			if (group == null)
 				return NotFound("Group not found");
@@ -216,6 +225,9 @@ namespace FloatySyncServer.Controllers
 			[FromQuery] string groupKeyPlaintext)
 		{
 			relativePath = PathNorm.Normalize(relativePath);
+
+			if (!Helpers.IsSafeRelativePath(relativePath))
+				return BadRequest("Invalid Path");
 
 			var group = _syncDbContext.Groups.Find(Convert.ToInt32(groupId));
 			if (group == null)

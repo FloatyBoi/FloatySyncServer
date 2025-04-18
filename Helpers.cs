@@ -67,5 +67,14 @@ namespace FloatySyncServer
 			using var sr = new StreamReader(cs);
 			return sr.ReadToEnd();
 		}
+
+		public static bool IsSafeRelativePath(string rel)
+		{
+			if (string.IsNullOrWhiteSpace(rel)) return false;
+			var parts = rel.Split('/');
+			return parts.All(p =>
+				p.Length > 0 &&
+				p != "." && p != "..");
+		}
 	}
 }

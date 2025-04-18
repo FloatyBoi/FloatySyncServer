@@ -24,6 +24,9 @@ namespace FloatySyncServer.Controllers
 
 			string rel = PathNorm.Normalize(dto.RelativePath);
 
+			if (!Helpers.IsSafeRelativePath(rel))
+				return BadRequest("Invalid Path");
+
 			var exists = _syncDbContext.Files.Any(f => f.GroupId == dto.GroupId.ToString() &&
 											f.RelativePath == rel &&
 											!f.IsDeleted &&
@@ -53,6 +56,9 @@ namespace FloatySyncServer.Controllers
 
 			string oldNorm = PathNorm.Normalize(dto.OldPath);
 			string newNorm = PathNorm.Normalize(dto.NewPath);
+
+			if (!Helpers.IsSafeRelativePath(oldNorm) || !Helpers.IsSafeRelativePath(newNorm))
+				return BadRequest("Invalid Path");
 
 			string oldPrefix = oldNorm + "/";
 			string newPrefix = newNorm + "/";
@@ -100,6 +106,10 @@ namespace FloatySyncServer.Controllers
 			if (!TryAuthorize(groupId, groupKeyPlaintext, out var _)) return Forbid();
 
 			string rel = PathNorm.Normalize(relativePath);
+
+			if (!Helpers.IsSafeRelativePath(rel))
+				return BadRequest("Invalid Path");
+
 			string prefix = rel + "/";
 
 			var rows = _syncDbContext.Files.Where(f => f.GroupId == groupId.ToString() &&
