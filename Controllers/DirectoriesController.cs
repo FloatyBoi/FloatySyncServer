@@ -27,6 +27,8 @@ namespace FloatySyncServer.Controllers
 			if (!Helpers.IsSafeRelativePath(rel))
 				return BadRequest("Invalid Path");
 
+			string phys = FullPath(dto.GroupId, rel);
+
 			var exists = _syncDbContext.Files.Any(f => f.GroupId == dto.GroupId.ToString() &&
 											f.RelativePath == rel &&
 											!f.IsDeleted &&
@@ -38,12 +40,12 @@ namespace FloatySyncServer.Controllers
 					GroupId = dto.GroupId.ToString(),
 					RelativePath = rel,
 					IsDirectory = true,
-					LastModifiedUtc = DateTime.UtcNow
+					LastModifiedUtc = DateTime.UtcNow,
+					StoredPathOnServer = phys
 				});
 				_syncDbContext.SaveChanges();
 			}
 
-			string phys = FullPath(dto.GroupId, rel);
 			Directory.CreateDirectory(phys);
 
 			return Ok();
