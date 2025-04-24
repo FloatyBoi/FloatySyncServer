@@ -52,13 +52,14 @@ namespace FloatySyncServer.Controllers
 		[HttpPost("rename")]
 		public IActionResult RenameDir([FromBody] DirectoryRenameDto dto)
 		{
-			if (!TryAuthorize(dto.GroupId, dto.GroupKey, out var _)) return Forbid();
+			if (!TryAuthorize(dto.GroupId, dto.GroupKey, out _))
+				return Forbid();
 
 			string oldNorm = PathNorm.Normalize(dto.OldPath);
 			string newNorm = PathNorm.Normalize(dto.NewPath);
 
 			if (!Helpers.IsSafeRelativePath(oldNorm) || !Helpers.IsSafeRelativePath(newNorm))
-				return BadRequest("Invalid Path");
+				return BadRequest("Invalid path");
 
 			string oldPrefix = oldNorm + "/";
 			string newPrefix = newNorm + "/";
@@ -66,35 +67,76 @@ namespace FloatySyncServer.Controllers
 			string oldPhys = FullPath(dto.GroupId, oldNorm);
 			string newPhys = FullPath(dto.GroupId, newNorm);
 
-			if (Directory.Exists(oldPhys))
+			using var tx = _syncDbContext.Database.BeginTransaction();
+			try
 			{
+				if (!Directory.Exists(oldPhys))
+					return NotFound("Source directory missing");
+
 				Directory.CreateDirectory(Path.GetDirectoryName(newPhys)!);
 				Directory.Move(oldPhys, newPhys);
+
+				AddMissingParents(dto.GroupId, newNorm);
+
+				var rows = _syncDbContext.Files
+							  .Where(f => f.GroupId == dto.GroupId.ToString() &&
+										 (f.RelativePath == oldNorm ||
+										  f.RelativePath.StartsWith(oldPrefix)))
+							  .ToList();
+
+				foreach (var row in rows)
+				{
+					string tail = row.RelativePath == oldNorm
+								? string.Empty
+								: row.RelativePath.Substring(oldPrefix.Length);
+
+					string newRel = newPrefix + tail;
+
+					row.RelativePath = newRel;
+					row.StoredPathOnServer = Path.Combine(GroupRoot(dto.GroupId),
+														  PathNorm.ToDisk(newRel));
+					row.LastModifiedUtc = DateTime.UtcNow;
+				}
+
+				_syncDbContext.SaveChanges();
+				tx.Commit();
+				return Ok();
 			}
-
-			var rows = _syncDbContext.Files.Where(f => f.GroupId == dto.GroupId.ToString() &&
-											f.RelativePath.StartsWith(oldPrefix))
-								.ToList();
-
-			foreach (var row in rows)
+			catch (Exception ex)
 			{
-				string tail = row.RelativePath.Substring(oldPrefix.Length);
-				row.RelativePath = newPrefix + tail;
-				row.LastModifiedUtc = DateTime.UtcNow;
+				tx.Rollback();
+				return StatusCode(500, "Internal error");
 			}
 
-			var dirRow = _syncDbContext.Files.FirstOrDefault(f =>
-						f.GroupId == dto.GroupId.ToString() &&
-						f.RelativePath == oldNorm &&
-						f.IsDirectory && !f.IsDeleted);
-			if (dirRow != null)
+			void AddMissingParents(int groupId, string leafRel)
 			{
-				dirRow.RelativePath = newNorm;
-				dirRow.LastModifiedUtc = DateTime.UtcNow;
+				var parts = leafRel.Split('/');
+				string running = string.Empty;
+
+				for (int i = 0; i < parts.Length - 1; i++)
+				{
+					running = (i == 0) ? parts[0] : $"{running}/{parts[i]}";
+
+					if (_syncDbContext.Files.Any(f =>
+							f.GroupId == groupId.ToString() &&
+							f.RelativePath == running &&
+							f.IsDirectory && !f.IsDeleted))
+						continue;
+
+					_syncDbContext.Files.Add(new FileMetadata
+					{
+						GroupId = groupId.ToString(),
+						RelativePath = running,
+						IsDirectory = true,
+						LastModifiedUtc = DateTime.UtcNow,
+						StoredPathOnServer = Path.Combine(GroupRoot(groupId),
+														  PathNorm.ToDisk(running))
+					});
+				}
 			}
 
-			_syncDbContext.SaveChanges();
-			return Ok();
+			string GroupRoot(int groupId) =>
+				Path.Combine(DataRoot, groupId.ToString());
 		}
 
 		[HttpDelete]
